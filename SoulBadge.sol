@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
 
+// import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -40,11 +41,12 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard {
         uint endingTokenId;
         string URI;
         bool isExist;
+        mapping (address => Claimer) attendeeDetails;
         Claimer[] claimers;
     }
 
     mapping (bytes32 => Details) public eventDetails; //input: secretCode
-    //mapping (bytes32 => Claimer[]) private attendees; //perbaiki
+
     // function _baseURI() internal pure override returns(string memory) {
     //     return "<https://www.myapp.com/>";
     // }
@@ -79,14 +81,20 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard {
     }
 
     function claim(bytes32 _secretCode, address _to) public checkValid(_secretCode) nonReentrant {
-       
+        bool isClaimed = eventDetails[_secretCode].attendeeDetails[_to].claimed;
+        require(isClaimed == false, "Recipient already claimed the Token");
+
         //require max claim
         uint remainingTokens = getRemainingTokens(_secretCode);
         require(remainingTokens > 0, "The maximum claims reached!");
         
-        //add attendees' info who claimed to Details struct
+        //record all attendees' details who are already claimed to Details struct
+        //biar memudahkan saat ngambil semua data attendee-nya
         uint tokenId = getTokenId(_secretCode);
         eventDetails[_secretCode].claimers.push(Claimer(_to, tokenId, true)); 
+
+        //record each attendee that is already claimed, to prevent double spending/minting to the same address
+        eventDetails[_secretCode].attendeeDetails[_to] = Claimer(_to, tokenId, true);
 
         // transfer ownership dari minter (contractOwner) ke attendee
         safeTransferFrom(contractOwner, _to, tokenId);
@@ -117,6 +125,7 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard {
             tokenIds[i]     = eventDetails[secretCode].claimers[i].tokenId;
             claimed[i]      = eventDetails[secretCode].claimers[i].claimed;
         }
+        return (addresses, tokenIds, claimed);
     }
 
 
