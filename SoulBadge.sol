@@ -3,7 +3,9 @@
 pragma solidity ^0.8.0;
 
 // import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -13,7 +15,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * Gimana cara transfer NFTnya nanti dengan kode referral
  */
 
-contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard {
+contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard, ERC721Burnable {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
 
@@ -148,6 +150,15 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard {
         // gak bisa ditransfer kalau udah dikasih dari address contract ini
         require(from == address(0) || from == contractOwner, "Err: token is SOUL BOUND");
         super._beforeTokenTransfer(from, to, tokenId);
+    }
+
+    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);
+    }
+
+    function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) 
+    returns (string memory){
+        return super.tokenURI(tokenId);
     }
 
 }
