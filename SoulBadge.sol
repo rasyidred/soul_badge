@@ -83,7 +83,9 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard, ERC721Burnable
             _setTokenURI(tokenId, _tokenURI);
             setApprovalForAll(storageAddress, true);
         }
+        
         emit eventCreated(_noOfAttendees, _tokenURI, secretCode);
+        return secretCode;
     }
 
     function claim(bytes32 _secretCode, address _to) public checkValid(_secretCode) nonReentrant returns (uint tokenId, uint remainingTokens) {
