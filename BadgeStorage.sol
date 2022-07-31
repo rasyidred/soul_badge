@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 /**
- * @title NFTStorage
+ * @title BadgeStorage
  * Temporary storage before giving to audience
  */
 
@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract NFTStorage is ReentrancyGuard{
+contract BadgeStorage is ReentrancyGuard{
     using Counters for Counters.Counter;
 
     Counters.Counter private itemIds;
