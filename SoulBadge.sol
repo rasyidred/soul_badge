@@ -17,16 +17,21 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
 
-    address contractOwner;
+    address public contractOwner;
+    address public storageAddress;
 
     modifier checkValid(bytes32 secretCode){
         require(eventDetails[secretCode].isExist == true, "The code is not valid nor exist");
         _;
     }
 
-    constructor() ERC721("SoulBadge", "SBT"){
+    constructor(address _storageAddress) ERC721("SoulBadge", "SBT"){
         contractOwner = msg.sender;
+        storageAddress = _storageAddress;
     }
+
+    event eventCreated (uint maxAttendees, string eventInfo, bytes32 secretCode);
+    event badgeClaimed (address recipient, uint tokenId, string tokenURI);
 
     struct Claimer{
         address attendee;
@@ -76,8 +81,9 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard {
             _safeMint(contractOwner, tokenId);
             _setTokenURI(tokenId, _tokenURI);
             // setApprovalForAll(storageAddress, true); 
-            setApprovalForAll(address(this), true);
+            setApprovalForAll(storageAddress, true);
         }
+        emit eventCreated(_noOfAttendees, _tokenURI, secretCode);
     }
 
     function claim(bytes32 _secretCode, address _to) public checkValid(_secretCode) nonReentrant {
@@ -100,6 +106,8 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard {
         safeTransferFrom(contractOwner, _to, tokenId);
 
         eventDetails[_secretCode].counterClaimed += 1;
+
+        emit badgeClaimed(_to, tokenId, eventDetails[_secretCode].URI);
     }
 
     /* Getter Functions */
