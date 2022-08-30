@@ -15,7 +15,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * Gimana cara transfer NFTnya nanti dengan kode referral
  */
 
-contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard, ERC721Burnable {
+contract SoulBadge is ERC721, ERC721URIStorage, ERC721Burnable, Ownable, ReentrancyGuard  {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
 
@@ -31,8 +31,18 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard, ERC721Burnable
     }
 
     event eventCreated (uint maxAttendees, string eventInfo, bytes32 secretCode);
-    event badgeDistributed (address recipient, uint tokenId, string tokenURI);
+    event badgeDistributed (address recipient, bytes32 secretCode, uint tokenId, string tokenURI);
 
+    struct registeredEvent{
+        bytes32 secretCode;
+        uint tokenId;
+    }
+
+    struct eventList{
+        uint counter;
+        mapping (uint => registeredEvent) badgeInfo;
+    }
+    
     struct Claimer{
         address attendee;
         uint tokenId;
@@ -51,7 +61,9 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard, ERC721Burnable
     }
 
     mapping (bytes32 => Details) public eventDetails; //input: secretCode
-
+    mapping (address => eventList) public userBadge; //record all badges that user has
+    // mapping (address => userBadge) public userBadges;
+    
     // function _baseURI() internal pure override returns(string memory) {
     //     return "<https://www.myapp.com/>";
     // }
@@ -108,12 +120,23 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard, ERC721Burnable
 
         eventDetails[_secretCode].counterClaimed += 1;
 
-        emit badgeDistributed(_to, tokenId, eventDetails[_secretCode].URI);
+        //Record user's badge
+        uint badgeCounter = userBadge[_to].counter;
+        userBadge[_to].badgeInfo[badgeCounter].secretCode = _secretCode;
+        userBadge[_to].badgeInfo[badgeCounter].tokenId = tokenId;
+        userBadge[_to].counter +=1 ;
+
+        emit badgeDistributed(_to, _secretCode ,tokenId, eventDetails[_secretCode].URI);
 
         return tokenId;
     }
 
     /* Getter Functions */
+    function getUserBadge (address _address, uint idx) public view returns (bytes32 secretCode, uint tokenId){
+        secretCode = userBadge[_address].badgeInfo[idx].secretCode;
+        tokenId = userBadge[_address].badgeInfo[idx].tokenId;
+    }
+
     function getRemainingTokens(bytes32 secretCode) internal view returns (uint remainingTokens) {
         uint startingTokenId = eventDetails[secretCode].startingTokenId;
         uint endingTokenId   = eventDetails[secretCode].endingTokenId;
@@ -148,9 +171,8 @@ contract SoulBadge is ERC721URIStorage, Ownable, ReentrancyGuard, ERC721Burnable
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId)
     internal override(ERC721) {
-        // gak bisa ditransfer kalau udah dikasih dari address contract ini
         require(from == address(0) || to == address(0) ||
-                from == contractOwner, "Err: token is SOUL BOUND");
+                from == contractOwner, "Err: token is not transferable");
         super._beforeTokenTransfer(from, to, tokenId);
     }
 
