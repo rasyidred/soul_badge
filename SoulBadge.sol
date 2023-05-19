@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
-// import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+// must use specific version of ERC721 standard
+import "@openzeppelin/contracts@4.7.0/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts@4.7.0/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts@4.7.0/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
@@ -15,7 +14,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * Gimana cara transfer NFTnya nanti dengan kode referral
  */
 
-contract SoulBadge is ERC721, ERC721URIStorage, ERC721Burnable, Ownable, ReentrancyGuard  {
+contract SoulBadge is ERC721, ERC721URIStorage, ERC721Burnable, ReentrancyGuard  {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
 
@@ -30,8 +29,10 @@ contract SoulBadge is ERC721, ERC721URIStorage, ERC721Burnable, Ownable, Reentra
         contractOwner = msg.sender;
     }
 
-    event eventCreated (uint maxAttendees, string eventInfo, bytes32 secretCode);
-    event badgeDistributed (address recipient, bytes32 secretCode, uint tokenId, string tokenURI);
+    event EventCreated (uint maxAttendees, string eventInfo, bytes32 secretCode);
+    event BadgeDistributed (address recipient, bytes32 secretCode, uint tokenId, string tokenURI);
+    event Attest (address indexed to, uint indexed tokenId);
+    event Revoke (address indexed to, uint indexed tokenId);
 
     struct registeredEvent{
         bytes32 secretCode;
@@ -69,7 +70,7 @@ contract SoulBadge is ERC721, ERC721URIStorage, ERC721Burnable, Ownable, Reentra
     // }
     
 
-    function createEvent(uint _noOfAttendees, string memory _tokenURI) public onlyOwner nonReentrant returns (bytes32 secretCode){
+    function createEvent(uint _noOfAttendees, string memory _tokenURI) public nonReentrant returns (bytes32 secretCode){
         secretCode = keccak256(abi.encodePacked(block.timestamp, _noOfAttendees, _tokenURI));
         uint startingTokenId;
         if (_tokenIdCounter.current() == 0){
@@ -94,12 +95,12 @@ contract SoulBadge is ERC721, ERC721URIStorage, ERC721Burnable, Ownable, Reentra
             _setTokenURI(tokenId, _tokenURI);
             // setApprovalForAll(storageAddress, true); 
         }
-        emit eventCreated(_noOfAttendees, _tokenURI, secretCode);
+        emit EventCreated(_noOfAttendees, _tokenURI, secretCode);
 
         return secretCode;
     }
 
-    function distributeBadges(bytes32 _secretCode, address _to) public checkValid(_secretCode) nonReentrant onlyOwner returns (uint tokenId) {
+    function distributeBadges(bytes32 _secretCode, address _to) public checkValid(_secretCode) nonReentrant returns (uint tokenId) {
         bool isClaimed = eventDetails[_secretCode].attendeeDetails[_to].claimed;
         require(isClaimed == false, "Recipient already claimed the Token");
 
@@ -126,7 +127,7 @@ contract SoulBadge is ERC721, ERC721URIStorage, ERC721Burnable, Ownable, Reentra
         userBadge[_to].badgeInfo[badgeCounter].tokenId = tokenId;
         userBadge[_to].counter +=1 ;
 
-        emit badgeDistributed(_to, _secretCode ,tokenId, eventDetails[_secretCode].URI);
+        emit BadgeDistributed(_to, _secretCode ,tokenId, eventDetails[_secretCode].URI);
 
         return tokenId;
     }
@@ -164,16 +165,29 @@ contract SoulBadge is ERC721, ERC721URIStorage, ERC721Burnable, Ownable, Reentra
 
 
     /* The following functions are overrides required by Solidity. */
-    function _afterTokenTransfer(address from, address to, uint256 tokenId)
-    internal override(ERC721) {
-        super._afterTokenTransfer(from, to, tokenId);
+    // function _afterTokenTransfer(address from, address to, uint256 tokenId)
+    // internal override(ERC721) {
+    //     super._afterTokenTransfer(from, to, tokenId);
+    // }
+
+    // function _beforeTokenTransfer(address from, address to, uint256 tokenId)
+    // internal override(ERC721) {
+    //     require(from == address(0) || to == address(0) ||
+    //             from == contractOwner, "Err: token is not transferable");
+    //     super._beforeTokenTransfer(from, to, tokenId);
+    // }
+
+    function _beforeTokenTransfer(address from, address to, uint256) pure internal override {
+        require(from == address(0) || to == address(0), "Not allowed to transfer token");
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId)
-    internal override(ERC721) {
-        require(from == address(0) || to == address(0) ||
-                from == contractOwner, "Err: token is not transferable");
-        super._beforeTokenTransfer(from, to, tokenId);
+    function _afterTokenTransfer(address from, address to, uint256 tokenId) override internal {
+
+        if (from == address(0)) {
+            emit Attest(to, tokenId);
+        } else if (to == address(0)) {
+            emit Revoke(to, tokenId);
+        }
     }
 
     function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
